@@ -9,17 +9,17 @@ import (
 )
 
 type Config struct {
-	username string
-	password string
-	host     string
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Host     string `json:"host"`
 }
 
-type Api struct {
-	config Config
-	client http.Client
+type Client struct {
+	config     Config
+	httpClient http.Client
 }
 
-func NewFromJson(file string) (*Api, error) {
+func NewFromJson(file string) (*Client, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -30,32 +30,32 @@ func NewFromJson(file string) (*Api, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Api{config: c, client: http.Client{}}, nil
+	return &Client{config: c, httpClient: http.Client{}}, nil
 }
 
-func New(username string, password string, host string) *Api {
+func New(username string, password string, host string) *Client {
 	c := Config{
-		username: username,
-		password: password,
-		host:     host,
+		Username: username,
+		Password: password,
+		Host:     host,
 	}
-	return &Api{config: c, client: http.Client{}}
+	return &Client{config: c, httpClient: http.Client{}}
 }
 
-func (c *Api) doGet(route string) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.config.host, route)
+func (c *Client) doGet(route string) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", c.config.Host, route)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.SetBasicAuth(c.config.username, c.config.password)
+	req.SetBasicAuth(c.config.Username, c.config.Password)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("User-Agent", "byxorna/collinsbot")
-	return c.client.Do(req)
+	return c.httpClient.Do(req)
 }
 
 //TODO pull out this logic into something reusable
-func (c *Api) Get(tag string) (*Asset, error) {
+func (c *Client) Get(tag string) (*Asset, error) {
 	resp, err := c.doGet(fmt.Sprintf("/api/asset/%s", tag))
 	if err != nil {
 		return nil, err

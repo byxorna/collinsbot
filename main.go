@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	c "github.com/byxorna/collinsbot/collins"
 	"github.com/nlopes/slack"
 	"log"
 	"os"
@@ -19,6 +20,7 @@ var (
 	settings   Settings
 	api        *slack.Slack
 	postParams slack.PostMessageParameters
+	collins    *c.Client
 )
 
 func init() {
@@ -57,6 +59,8 @@ func main() {
 	if settings.Token == "" {
 		log.Fatal("You need to give me an API token!")
 	}
+
+	collins = c.New(settings.Collins.Username, settings.Collins.Password, settings.Collins.Host)
 
 	// set up posting params
 	postParams = slack.NewPostMessageParameters()
@@ -131,7 +135,7 @@ func main() {
 			case *slack.MessageEvent:
 				a := msg.Data.(*slack.MessageEvent)
 				log.Printf("Message: %+v\n", a)
-				//TODO: look for indicators that this is a request to us, and resolve shit?
+				//TODO: look for indicators that this is a request to us, and resolve shit in collins?
 			}
 		}
 	}

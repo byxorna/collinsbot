@@ -1,5 +1,10 @@
 {
   "token":"",
   "channels":["#zen"],
-  "botname":""
+  "botname":"",
+  "collins":{
+    "username":"blake",
+    "password":"admin:first",
+    "host":"http://192.168.1.103:9000"
+  }
 }
