@@ -7,6 +7,8 @@ import (
 	"github.com/nlopes/slack"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -113,6 +115,8 @@ func main() {
 		log.Fatal("Unable to start realtime messaging websocket: %s\n", err.Error())
 	}
 	// send incoming events into the chIncoming channel
+	// and record when we started listening for events so we can ignore those which happened earlier
+	var socketEstablished = time.Now().Unix()
 	go ws.HandleIncomingEvents(chIncoming)
 	// keep the connection alive every 20s with a ping
 	go ws.Keepalive(20 * time.Second)
@@ -122,7 +126,9 @@ func main() {
 			select {
 			case msg := <-chOutgoing:
 				log.Printf("Sending message %+v\n", msg)
-				ws.SendMessage(&msg)
+				if err := ws.SendMessage(&msg); err != nil {
+					log.Printf("Error: %s\n", err.Error())
+				}
 			}
 		}
 	}()
@@ -133,9 +139,37 @@ func main() {
 			//log.Printf("Received event:\n")
 			switch msg.Data.(type) {
 			case *slack.MessageEvent:
-				a := msg.Data.(*slack.MessageEvent)
-				log.Printf("Message: %+v\n", a)
-				//TODO: look for indicators that this is a request to us, and resolve shit in collins?
+				msgevent := msg.Data.(*slack.MessageEvent)
+				if ts, err := strconv.ParseInt(strings.Split(msgevent.Timestamp, ".")[0], 10, 64); err == nil {
+					// if we didnt have trouble pulling the timestamp out, lets discard if it happened
+					// before socketEstablished
+					if socketEstablished > ts {
+						log.Printf("Ignoring message %s at %d, which was sent before we started listening\n", msgevent.Msg.Text, ts)
+						continue
+					}
+				} else {
+					log.Printf("Unable to parse timestamp %s: %s\n", msgevent.Timestamp, err.Error())
+				}
+
+				// handle messages with any asset tags present - we will turn them into collins links
+				tags := extractAssetTags(msgevent)
+				if len(tags) > 0 {
+					items := []string{}
+					for _, tag := range tags {
+						items = append(items, collins.LinkFromTag(tag))
+					}
+					// send a message back to that channel with the links to the assets
+					msg := ws.NewOutgoingMessage(strings.Join(items, "\n"), msgevent.ChannelId)
+					log.Printf("Sending %+v\n", msg)
+					chOutgoing <- *msg
+				}
+
+				// handle messages with any hostnames present - if assets, link them
+				hosts := extractHostnames(msgevent)
+				for _, host := range hosts {
+					//TODO!
+					log.Printf("Found host %s in %s\n", host, msgevent.Msg.Text)
+				}
 			}
 		}
 	}

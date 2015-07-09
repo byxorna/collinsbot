@@ -42,7 +42,7 @@ func New(username string, password string, host string) *Client {
 	return &Client{config: c, httpClient: http.Client{}}
 }
 
-func (c *Client) doGet(route string) (*http.Response, error) {
+func (c *Client) doGet(route string) (*json.RawMessage, error) {
 	url := fmt.Sprintf("%s%s", c.config.Host, route)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -51,12 +51,7 @@ func (c *Client) doGet(route string) (*http.Response, error) {
 	req.SetBasicAuth(c.config.Username, c.config.Password)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("User-Agent", "byxorna/collinsbot")
-	return c.httpClient.Do(req)
-}
-
-//TODO pull out this logic into something reusable
-func (c *Client) Get(tag string) (*Asset, error) {
-	resp, err := c.doGet(fmt.Sprintf("/api/asset/%s", tag))
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -65,23 +60,42 @@ func (c *Client) Get(tag string) (*Asset, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Got response %d from %s: %s", resp.StatusCode, resp.Request.URL, body)
-	}
+	// parse it into a GenericResponse and hand it back to the client to decode as it sees fit
 	var collinsResp GenericResponse
 	err = json.Unmarshal(body, &collinsResp)
 	if err != nil {
 		return nil, err
 	}
-	if collinsResp.Status != "success:ok" {
-		return nil, fmt.Errorf("Got bad response from Collins: %s", collinsResp.Status)
+	if collinsResp.Status != "success:ok" || resp.StatusCode != http.StatusOK {
+		// this thing is an error response, so lets unmarshal it so we can pull the error message out
+		var errResp ErrorResponse
+		err = json.Unmarshal(body, &errResp)
+		if err != nil {
+			return &collinsResp.Data, err
+		}
+		return &collinsResp.Data, errResp.Error()
 	}
+	// just return the json.RawMessage so the caller can decode
+	return &collinsResp.Data, nil
+}
 
+func (c *Client) Get(tag string) (*Asset, error) {
+	rawjson, err := c.doGet(fmt.Sprintf("/api/asset/%s", tag))
+	if err != nil {
+		return nil, err
+	}
 	//try and parse the Data as an Asset
 	var a Asset
-	err = json.Unmarshal(collinsResp.Data, &a)
+	err = json.Unmarshal(*rawjson, &a)
 	if err != nil {
 		return nil, err
 	}
 	return &a, nil
+}
+
+func (c *Client) Link(asset Asset) string {
+	return c.LinkFromTag(asset.Asset.Tag)
+}
+func (c *Client) LinkFromTag(tag string) string {
+	return fmt.Sprintf("%s/asset/%s", c.config.Host, tag)
 }
