@@ -26,3 +26,4 @@ _testmain.go
 slack.token
 *.swp
 collinsbot
+examples/ewr01.json
