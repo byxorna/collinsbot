@@ -172,9 +172,11 @@ func main() {
 						items = append(items, fmt.Sprintf("<%s|%s> %s [%s/%s/%s/%s] <fixme|%s:%s>", collins.Link(*asset), asset.Asset.Tag, *hostname, *nodeclass, *pool, *primary_role, *secondary_role, status, state))
 					}
 					// send a message back to that channel with the links to the assets
-					msg := ws.NewOutgoingMessage(strings.Join(items, "\n"), msgevent.ChannelId)
-					log.Printf("Sending %+v\n", msg)
-					chOutgoing <- *msg
+					if len(items) > 0 {
+						msg := ws.NewOutgoingMessage(strings.Join(items, "\n"), msgevent.ChannelId)
+						log.Printf("Sending %+v\n", msg)
+						chOutgoing <- *msg
+					}
 				}
 
 				// handle messages with any hostnames present - if assets, link them
