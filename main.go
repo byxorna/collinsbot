@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	c "github.com/byxorna/collinsbot/collins"
 	"github.com/nlopes/slack"
 	"log"
@@ -28,7 +27,7 @@ var (
 
 func init() {
 	flag.StringVar(&cli.token, "token", "", "Slack API token")
-	flag.StringVar(&cli.botname, "botname", "collinsbot", "Bot name")
+	flag.StringVar(&cli.botname, "botname", "", "Bot name")
 	flag.StringVar(&cli.file, "config", "", "File containing Slack API token")
 	flag.BoolVar(&cli.debug, "debug", false, "Turn on Slack API debugging")
 	flag.Parse()
@@ -68,6 +67,8 @@ func main() {
 	// set up posting params
 	postParams = slack.NewPostMessageParameters()
 	postParams.Username = settings.Botname
+	//postParams.LinkNames = 1
+	//postParams.Parse = "full"
 
 	api = slack.New(settings.Token)
 	api.SetDebug(cli.debug)
@@ -77,36 +78,12 @@ func main() {
 	}
 	log.Printf("Authed with Slack successfully: %+v\n", resp)
 
-	for _, ch := range settings.Channels {
-		log.Printf("Joining channel %s\n", ch)
-		channel, err := api.JoinChannel(ch)
-		if err != nil {
-			log.Printf("Unable to join %s: %s\n", ch, err.Error())
-			continue
-		}
-		log.Printf("Joined channel %s; Topic is %s, created by %s\n", channel.Name, channel.Topic.Value, channel.Topic.Creator)
-
-		// leave the channel when we exit
-		/* TODO: uncomment when using real bot API key, not user key
-		defer func() {
-			log.Printf("Leaving channel %s\n", channel.Name)
-			left, err := api.LeaveChannel(channel.Id)
-			if err != nil {
-				log.Printf("Unable to leave channel %s (%s): %s\n", channel.Name, channel.Id, err.Error())
-			}
-			log.Printf("Left channel %s: %b", channel.Name, left)
-		}()
-		*/
-
-		/*
-			channelId, ts, err := api.PostMessage(channel.Id, fmt.Sprintf("Hello, %s", ch), postParams)
-			if err != nil {
-				log.Printf("Unable to message %s: %s\n", ch, err.Error())
-				continue
-			}
-			log.Printf("Sent message to %s at %s\n", channelId, ts)
-		*/
-
+	// handlers are a set of functions that process a messsage and either handle them (true)
+	// or skip them (move on to next handler, and possibly blow up)
+	messagehandlers := map[string]func(*slack.MessageEvent) (bool, error){
+		"YouAliveHandler":      YouAliveHandler,
+		"AssetTagHandler":      AssetTagHandler,
+		"AssetHostnameHandler": AssetHostnameHandler,
 	}
 
 	chIncoming := make(chan slack.SlackEvent)
@@ -122,6 +99,7 @@ func main() {
 	// keep the connection alive every 20s with a ping
 	go ws.Keepalive(20 * time.Second)
 	// process outgoing messages from chOutgoing
+	//TODO this isnt super useful, because slack only does simple formatting over websockets
 	go func() {
 		for {
 			select {
@@ -141,9 +119,10 @@ func main() {
 			switch msg.Data.(type) {
 			case *slack.MessageEvent:
 				msgevent := msg.Data.(*slack.MessageEvent)
+
+				// if we didnt have trouble pulling the timestamp out, lets discard if it happened
+				// before socketEstablished
 				if ts, err := strconv.ParseInt(strings.Split(msgevent.Timestamp, ".")[0], 10, 64); err == nil {
-					// if we didnt have trouble pulling the timestamp out, lets discard if it happened
-					// before socketEstablished
 					if socketEstablished > ts {
 						log.Printf("Ignoring message %s at %d, which was sent before we started listening\n", msgevent.Msg.Text, ts)
 						continue
@@ -152,39 +131,18 @@ func main() {
 					log.Printf("Unable to parse timestamp %s: %s\n", msgevent.Timestamp, err.Error())
 				}
 
-				// handle messages with any asset tags present - we will turn them into collins links
-				tags := extractAssetTags(msgevent)
-				if len(tags) > 0 {
-					assets := lookupAssetsFromTags(tags)
-					items := []string{}
-					for _, asset := range assets {
-
-						var (
-							emptystr       = ""
-							hostname       = asset.AttrFetch("HOSTNAME", "0", &emptystr)
-							pool           = asset.AttrFetch("POOL", "0", &emptystr)
-							primary_role   = asset.AttrFetch("PRIMARY_ROLE", "0", &emptystr)
-							secondary_role = asset.AttrFetch("SECONDARY_ROLE", "0", &emptystr)
-							nodeclass      = asset.AttrFetch("NODECLASS", "0", &emptystr)
-							status         = asset.Asset.Status
-							state          = asset.Asset.State.Name
-						)
-						items = append(items, fmt.Sprintf("<%s|%s> %s [%s/%s/%s/%s] <fixme|%s:%s>", collins.Link(*asset), asset.Asset.Tag, *hostname, *nodeclass, *pool, *primary_role, *secondary_role, status, state))
+				for name, handler := range messagehandlers {
+					handled, err := handler(msgevent)
+					if err != nil {
+						log.Printf("Error handling message with %s: %s\n", name, handler, err.Error())
+						continue
 					}
-					// send a message back to that channel with the links to the assets
-					if len(items) > 0 {
-						msg := ws.NewOutgoingMessage(strings.Join(items, "\n"), msgevent.ChannelId)
-						log.Printf("Sending %+v\n", msg)
-						chOutgoing <- *msg
+					if handled {
+						log.Printf("%s handled message %s\n", name, msgevent.Msg.Text)
+						break
 					}
 				}
 
-				// handle messages with any hostnames present - if assets, link them
-				hosts := extractHostnames(msgevent)
-				for _, host := range hosts {
-					//TODO!
-					log.Printf("Found host %s in %s\n", host, msgevent.Msg.Text)
-				}
 			}
 		}
 	}

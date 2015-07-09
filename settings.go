@@ -5,8 +5,8 @@ import (
 )
 
 type Settings struct {
-	Token    string   `json:"token"`
-	Channels []string `json:"channels"`
-	Botname  string   `json:"botname"`
-	Collins  c.Config `json:"collins"`
+	Token string `json:"token"`
+	//Channels []string `json:"channels"`
+	Botname string   `json:"botname"`
+	Collins c.Config `json:"collins"`
 }

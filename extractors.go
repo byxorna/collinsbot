@@ -1,8 +1,6 @@
 package main
 
 import (
-	c "github.com/byxorna/collinsbot/collins"
-	"github.com/nlopes/slack"
 	"log"
 	"regexp"
 )
@@ -14,8 +12,7 @@ var (
 )
 
 // given a message, extract the list of what we think are asset tags
-func extractAssetTags(evt *slack.MessageEvent) []string {
-	txt := evt.Msg.Text
+func extractAssetTags(txt string) []string {
 	//try to detect hostnames or asset tags
 	tagres := tagRegex.FindAllStringSubmatch(txt, -1)
 	if len(tagres) > 0 {
@@ -37,22 +34,7 @@ func extractAssetTags(evt *slack.MessageEvent) []string {
 	return []string{}
 }
 
-func lookupAssetsFromTags(tags []string) []*c.Asset {
-	var assets []*c.Asset
-	for _, t := range tags {
-		log.Printf("Attempting to resolve %s to a collins asset\n", t)
-		a, err := collins.Get(t)
-		if err != nil {
-			log.Printf("Error resolving tag %s: %s", t, err.Error())
-		} else {
-			assets = append(assets, a)
-		}
-	}
-	return assets
-}
-
-func extractHostnames(evt *slack.MessageEvent) []string {
-	txt := evt.Msg.Text
+func extractHostnames(txt string) []string {
 	//try to detect hostnames or asset tags
 	hostres := hostRegex.FindAllStringSubmatch(txt, -1)
 	if len(hostres) > 0 {
