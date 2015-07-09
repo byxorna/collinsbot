@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	c "github.com/byxorna/collinsbot/collins"
 	"github.com/nlopes/slack"
 	"log"
@@ -154,9 +155,21 @@ func main() {
 				// handle messages with any asset tags present - we will turn them into collins links
 				tags := extractAssetTags(msgevent)
 				if len(tags) > 0 {
+					assets := lookupAssetsFromTags(tags)
 					items := []string{}
-					for _, tag := range tags {
-						items = append(items, collins.LinkFromTag(tag))
+					for _, asset := range assets {
+
+						var (
+							emptystr       = ""
+							hostname       = asset.AttrFetch("HOSTNAME", "0", &emptystr)
+							pool           = asset.AttrFetch("POOL", "0", &emptystr)
+							primary_role   = asset.AttrFetch("PRIMARY_ROLE", "0", &emptystr)
+							secondary_role = asset.AttrFetch("SECONDARY_ROLE", "0", &emptystr)
+							nodeclass      = asset.AttrFetch("NODECLASS", "0", &emptystr)
+							status         = asset.Asset.Status
+							state          = asset.Asset.State.Name
+						)
+						items = append(items, fmt.Sprintf("<%s|%s> %s [%s/%s/%s/%s] <fixme|%s:%s>", collins.Link(*asset), asset.Asset.Tag, *hostname, *nodeclass, *pool, *primary_role, *secondary_role, status, state))
 					}
 					// send a message back to that channel with the links to the assets
 					msg := ws.NewOutgoingMessage(strings.Join(items, "\n"), msgevent.ChannelId)

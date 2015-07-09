@@ -99,3 +99,6 @@ func (c *Client) Link(asset Asset) string {
 func (c *Client) LinkFromTag(tag string) string {
 	return fmt.Sprintf("%s/asset/%s", c.config.Host, tag)
 }
+func (c *Client) LinkFromAttribute(attribute string, value string) string {
+	return fmt.Sprintf("%s/resources?%s=%s", c.config.Host, attribute, value)
+}
