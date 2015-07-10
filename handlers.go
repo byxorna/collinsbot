@@ -4,16 +4,58 @@ import (
 	"fmt"
 	"github.com/nlopes/slack"
 	"log"
-	"regexp"
 	"strings"
 )
 
-func YouAliveHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
-	//TODO we should only respond to prompts directed at us! how do we know? Look for our userid in the text?
-	matched, err := regexp.MatchString(`yt\?`, m.Msg.Text)
-	if err != nil {
-		return false, err
+func HelpHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
+	if isBotMention(m) && strings.Contains(m.Msg.Text, "help") {
+		log.Printf("Got help message\n")
+		p := slack.NewPostMessageParameters()
+
+		//TODO sort this nonsense, cause the help output ordering keeps changing...
+		helpfallbackslice := make([]string, len(helpinfo))
+		actionFields := make([]string, len(helpinfo))
+		descriptionFields := make([]string, len(helpinfo))
+		i := 0
+		for k, v := range helpinfo {
+			helpfallbackslice[i] = fmt.Sprintf("%s - %s", k, v)
+			actionFields[i] = k
+			descriptionFields[i] = v
+			i = i + 1
+		}
+		/* this looks lame
+		helpattachmentfields := []slack.AttachmentField{
+			slack.AttachmentField{
+				Title: "Action",
+				Value: strings.Join(actionFields, "\n"),
+				Short: true,
+			},
+			slack.AttachmentField{
+				Title: "Description",
+				Value: strings.Join(descriptionFields, "\n"),
+				Short: true,
+			},
+		}
+		*/
+
+		p.Attachments = []slack.Attachment{
+			slack.Attachment{
+				Title:    fmt.Sprintf("%s help", botIdentity.User),
+				Fallback: strings.Join(helpfallbackslice, "\n"),
+				Text:     strings.Join(helpfallbackslice, "\n"),
+				Color:    "warning",
+				//Fields:   helpattachmentfields,
+			},
+		}
+		_, _, err := api.PostMessage(m.ChannelId, "", p)
+		return true, err
+	} else {
+		return false, nil
 	}
+}
+
+func YouAliveHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
+	matched := isBotMention(m) && strings.Contains(m.Msg.Text, "yt?")
 	if matched {
 		log.Printf("Got yt? message %+v", m.Msg)
 		u, err := api.GetUserInfo(m.Msg.UserId)

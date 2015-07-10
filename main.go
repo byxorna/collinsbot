@@ -24,6 +24,23 @@ var (
 	ws         *slack.SlackWS
 	postParams slack.PostMessageParameters
 	collins    *c.Client
+
+	botIdentity *slack.AuthTestResponse
+
+	// message handlers are functions that process a message event
+	// similar to http route handlers. The first to return true stops processing
+	messagehandlers = map[string]func(*slack.MessageEvent, chan<- slack.OutgoingMessage) (bool, error){
+		"HelpHandler":          HelpHandler,
+		"YouAliveHandler":      YouAliveHandler,
+		"AssetTagHandler":      AssetTagHandler,
+		"AssetHostnameHandler": AssetHostnameHandler,
+	}
+
+	helpinfo = map[string]string{
+		"help": "show this help output",
+		"yt?":  "see if I am still alive",
+		"mention any asset tag or hostname": "get a link to the asset",
+	}
 )
 
 func init() {
@@ -74,19 +91,12 @@ func main() {
 
 	api = slack.New(settings.Token)
 	api.SetDebug(cli.debug)
-	resp, err := api.AuthTest()
+	authresp, err := api.AuthTest()
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Authed with Slack successfully: %+v\n", resp)
-
-	// handlers are a set of functions that process a messsage and either handle them (true)
-	// or skip them (move on to next handler, and possibly blow up)
-	messagehandlers := map[string]func(*slack.MessageEvent, chan<- slack.OutgoingMessage) (bool, error){
-		"YouAliveHandler":      YouAliveHandler,
-		"AssetTagHandler":      AssetTagHandler,
-		"AssetHostnameHandler": AssetHostnameHandler,
-	}
+	botIdentity = authresp
+	log.Printf("Authed with Slack successfully as %s (%s)\n", botIdentity.User, botIdentity.UserId)
 
 	chIncomingEvents := make(chan slack.SlackEvent)
 	chOutgoingMessages := make(chan slack.OutgoingMessage)
@@ -94,6 +104,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to start realtime messaging websocket: %s\n", err.Error())
 	}
+
 	// send incoming events into the chIncomingEvents channel
 	// and record when we started listening for events so we can ignore those which happened earlier
 	var socketEstablished = time.Now().Unix()
@@ -113,6 +124,7 @@ func main() {
 			}
 		}
 	}()
+
 	// process incoming messages
 	for {
 		select {
@@ -144,7 +156,6 @@ func main() {
 						break
 					}
 				}
-
 			}
 		}
 	}

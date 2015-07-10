@@ -7,8 +7,19 @@ package main
 import (
 	"fmt"
 	c "github.com/byxorna/collinsbot/collins"
+	"github.com/nlopes/slack"
 	"log"
+	"strings"
 )
+
+// I dont know if there is a better way to do this, but scan the text of the message
+// for anything mentioning our @userid or just user to say if someone mentioned us
+func isBotMention(m *slack.MessageEvent) bool {
+	//log.Printf("Looking for bot mention in %+v (@%s or %s)\n", m, botIdentity.UserId, botIdentity.User)
+	mention := strings.Contains(m.Msg.Text, fmt.Sprintf("@%s", botIdentity.UserId)) || strings.Contains(m.Msg.Text, botIdentity.User)
+	//log.Printf("Was mention: %v\n", mention)
+	return mention
+}
 
 func lookupAssetsFromTags(tags []string) []*c.Asset {
 	var assets []*c.Asset
