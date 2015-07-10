@@ -9,7 +9,9 @@ import (
 	c "github.com/byxorna/collinsbot/collins"
 	"github.com/nlopes/slack"
 	"log"
+	"math/rand"
 	"strings"
+	"time"
 )
 
 // I dont know if there is a better way to do this, but scan the text of the message
@@ -56,4 +58,10 @@ func assetStringForSlack(asset *c.Asset) string {
 		collins.LinkFromAttribute("PRIMARY_ROLE", *primary_role), *primary_role,
 		collins.LinkFromAttribute("SECONDARY_ROLE", *secondary_role), *secondary_role,
 		status, state)
+}
+
+// return a random string from an array of strings
+func random(arr []string) string {
+	rand.Seed(time.Now().Unix())
+	return arr[rand.Intn(len(arr)-1)]
 }

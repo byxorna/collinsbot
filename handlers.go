@@ -7,6 +7,20 @@ import (
 	"strings"
 )
 
+var (
+	wtfs = []string{
+		"Que?", "Bist du bescheuert oder?", "Donde esta la biblioteca?", "Huh?", "WTF?", "Scientists better check their hypotenuses!",
+	}
+)
+
+func WTFHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
+	if isBotMention(m) {
+		q <- *ws.NewOutgoingMessage(fmt.Sprintf("%s Try 'help'", random(wtfs)), m.ChannelId)
+		return true, nil
+	}
+	return false, nil
+}
+
 func HelpHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
 	if isBotMention(m) && strings.Contains(m.Msg.Text, "help") {
 		log.Printf("Got help message\n")

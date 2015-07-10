@@ -34,6 +34,7 @@ var (
 		"YouAliveHandler":      YouAliveHandler,
 		"AssetTagHandler":      AssetTagHandler,
 		"AssetHostnameHandler": AssetHostnameHandler,
+		"WTFHandler":           WTFHandler,
 	}
 
 	helpinfo = map[string]string{
