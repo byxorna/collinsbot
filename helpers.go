@@ -23,6 +23,10 @@ func isBotMention(m *slack.MessageEvent) bool {
 	return mention
 }
 
+func isBotMessage(m *slack.MessageEvent) bool {
+	return m.Msg.SubType == "bot_message"
+}
+
 func lookupAssetsFromTags(tags []string) []*c.Asset {
 	var assets []*c.Asset
 	for _, t := range tags {

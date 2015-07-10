@@ -84,6 +84,10 @@ func YouAliveHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (boo
 }
 
 func AssetTagHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
+	// dont process if this came from a bot (like ourselves). avoids looping
+	if isBotMessage(m) {
+		return false, nil
+	}
 	// handle messages with any asset tags present - we will turn them into collins links
 	tags := extractAssetTags(m.Msg.Text)
 	if len(tags) > 0 {
@@ -104,6 +108,9 @@ func AssetTagHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (boo
 
 func AssetHostnameHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
 	// handle messages with any hostnames present - if assets, link them
+	if isBotMessage(m) {
+		return false, nil
+	}
 	hosts := extractHostnames(m.Msg.Text)
 	if len(hosts) > 0 {
 		for _, host := range hosts {
