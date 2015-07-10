@@ -44,30 +44,103 @@ func lookupAssetsFromTags(tags []string) []c.Asset {
 func assetStringForSlack(asset c.Asset) string {
 	// this is crazy and hacky. There has to be a better way to format this
 	var (
-		emptystr       = ""
-		hostname       = asset.AttrFetch("HOSTNAME", "0", &emptystr)
-		pool           = asset.AttrFetch("POOL", "0", &emptystr)
-		primary_role   = asset.AttrFetch("PRIMARY_ROLE", "0", &emptystr)
-		secondary_role = asset.AttrFetch("SECONDARY_ROLE", "0", &emptystr)
-		nodeclass      = asset.AttrFetch("NODECLASS", "0", &emptystr)
-		status         = asset.Asset.Status
-		state          = asset.Asset.State.Name
+		nodeclass, nodeclass_ok           = asset.Attr("NODECLASS")
+		pool, pool_ok                     = asset.Attr("POOL")
+		primary_role, primary_role_ok     = asset.Attr("PRIMARY_ROLE")
+		secondary_role, secondary_role_ok = asset.Attr("SECONDARY_ROLE")
 	)
-	//TODO fix me! if an attribute is missing we should omit the link
-	return fmt.Sprintf("<%s|%s> <http://%s|%s> [<%s|%s>/<%s|%s>/<%s|%s>/<%s|%s>] <%s|%s:%s>",
-		collins.Link(asset), asset.Asset.Tag,
-		*hostname, *hostname,
-		collins.LinkFromAttributeWeb("NODECLASS", *nodeclass), *nodeclass,
-		collins.LinkFromAttributeWeb("POOL", *pool), *pool,
-		collins.LinkFromAttributeWeb("PRIMARY_ROLE", *primary_role), *primary_role,
-		collins.LinkFromAttributeWeb("SECONDARY_ROLE", *secondary_role), *secondary_role,
-		collins.LinkFromAttributesWeb(map[string]string{
-			"status": status,
-			"state":  state,
-		}, map[string]string{}), status, state,
+
+	return fmt.Sprintf("%s %s/%s/%s/%s %s",
+		slackLinkIfSet(collins.Link(asset), asset.Asset.Tag, true),
+		slackLinkIfSet(collins.LinkFromAttributeWeb("NODECLASS", nodeclass), nodeclass, nodeclass_ok),
+		slackLinkIfSet(collins.LinkFromAttributeWeb("POOL", pool), pool, pool_ok),
+		slackLinkIfSet(collins.LinkFromAttributeWeb("PRIMARY_ROLE", primary_role), primary_role, primary_role_ok),
+		slackLinkIfSet(collins.LinkFromAttributeWeb("SECONDARY_ROLE", secondary_role), secondary_role, secondary_role_ok),
+		slackLinkIfSet(collins.LinkFromAttributesWeb(map[string]string{
+			"status": asset.Asset.Status,
+			"state":  asset.Asset.State.Name,
+		}, map[string]string{}), fmt.Sprintf("%s:%s", asset.Asset.Status, asset.Asset.State.Name), true),
 	)
 }
 
+func slackLinkIfSet(link string, thing string, ok bool) string {
+	if !ok || thing == "" {
+		return ""
+	}
+	return fmt.Sprintf("<%s|%s>", link, thing)
+}
+
+func assetAttachmentFields(asset c.Asset) []slack.AttachmentField {
+	var (
+		nodeclass, nodeclass_ok           = asset.Attr("NODECLASS")
+		pool, pool_ok                     = asset.Attr("POOL")
+		primary_role, primary_role_ok     = asset.Attr("PRIMARY_ROLE")
+		secondary_role, secondary_role_ok = asset.Attr("SECONDARY_ROLE")
+	)
+	return []slack.AttachmentField{
+		slack.AttachmentField{
+			Title: "Tag",
+			Value: slackLinkIfSet(collins.Link(asset), asset.Asset.Tag, true),
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Status:State",
+			//Value: slackLinkIfSet(collins.LinkFromAttributeWeb("STATUS", asset.Asset.Status), asset.Asset.Status, true),
+			Value: slackLinkIfSet(collins.LinkFromAttributesWeb(map[string]string{
+				"status": asset.Asset.Status,
+				"state":  asset.Asset.State.Name,
+			}, map[string]string{}), fmt.Sprintf("%s:%s", asset.Asset.Status, asset.Asset.State.Name), true),
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Nodeclass",
+			Value: slackLinkIfSet(collins.LinkFromAttributeWeb("NODECLASS", nodeclass), nodeclass, nodeclass_ok),
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Pool",
+			Value: slackLinkIfSet(collins.LinkFromAttributeWeb("POOL", pool), pool, pool_ok),
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Primary Role",
+			Value: slackLinkIfSet(collins.LinkFromAttributeWeb("PRIMARY_ROLE", primary_role), primary_role, primary_role_ok),
+			Short: true,
+		},
+		slack.AttachmentField{
+			Title: "Secondary Role",
+			Value: slackLinkIfSet(collins.LinkFromAttributeWeb("SECONDARY_ROLE", secondary_role), secondary_role, secondary_role_ok),
+			Short: true,
+		},
+	}
+}
+
+func slackAssetAttachment(asset c.Asset) slack.Attachment {
+	title := asset.Asset.Tag
+	if v, ok := asset.Attribs["0"]["HOSTNAME"]; ok {
+		// if the title is a link, slack will ignore TitleLink so strip the domain
+		title = strings.Split(v, ".")[0]
+	}
+	color := "good"
+	switch asset.Asset.Status {
+	case "Maintenance":
+		color = "danger"
+		break
+	case "Provisioning", "Provisioned":
+		color = "#439FE0"
+		break
+	}
+	//Text:      assetStringForSlack(asset), // text isnt necessary here
+	return slack.Attachment{
+		Title:     title,
+		TitleLink: collins.Link(asset),
+		Color:     color,
+		Fallback:  collins.Link(asset),
+		Fields:    assetAttachmentFields(asset),
+	}
+}
+
+/*
 func slackAssetsAttachment(assets []c.Asset) *slack.Attachment {
 	if len(assets) == 0 {
 		return &slack.Attachment{
@@ -90,6 +163,7 @@ func slackAssetsAttachment(assets []c.Asset) *slack.Attachment {
 		Text:     strings.Join(textparts, "\n"),
 	}
 }
+*/
 
 // return a random string from an array of strings
 func random(arr []string) string {

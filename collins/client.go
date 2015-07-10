@@ -59,6 +59,7 @@ func (c *Client) doGet(url string) (*json.RawMessage, error) {
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	//log.Printf("%s\n", body)
 	if err != nil {
 		return nil, err
 	}

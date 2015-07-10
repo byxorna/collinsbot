@@ -33,24 +33,24 @@ type AssetFields struct {
 }
 
 type State struct {
-	Id          int    `json:"ID"`
-	Status      string `json:"STATUS"`
+	Id int `json:"ID"`
+	//Status      string `json:"STATUS"`
 	Name        string `json:"NAME"`
 	Label       string `json:"LABEL"`
 	Description string `json:"DESCRIPTION"`
 }
 
-func (a *Asset) Attr(key string) *string {
-	return a.AttrFetch(key, "0", nil)
+func (a *Asset) Attr(key string) (string, bool) {
+	return a.AttrFetch(key, "0", "")
 }
-func (a *Asset) AttrDimension(key string, dimension string) *string {
-	return a.AttrFetch(key, dimension, nil)
+func (a *Asset) AttrDimension(key string, dimension string) (string, bool) {
+	return a.AttrFetch(key, dimension, "")
 }
-func (a *Asset) AttrFetch(key string, dimension string, defval *string) *string {
+func (a *Asset) AttrFetch(key string, dimension string, defval string) (string, bool) {
 	v, ok := a.Attribs[dimension][key]
 	if ok {
-		return &v
+		return v, ok
 	} else {
-		return defval
+		return defval, ok
 	}
 }

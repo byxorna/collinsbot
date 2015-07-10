@@ -98,13 +98,12 @@ func AssetTagHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (boo
 	tags := extractAssetTags(m.Msg.Text)
 	if len(tags) > 0 {
 		assets := lookupAssetsFromTags(tags)
-		items := []string{}
-		for _, asset := range assets {
-			items = append(items, assetStringForSlack(asset))
-		}
 		// send a message back to that channel with the links to the assets
 		p := slack.NewPostMessageParameters()
-		p.Attachments = []slack.Attachment{*slackAssetsAttachment(assets)}
+		p.Attachments = make([]slack.Attachment, len(assets))
+		for i, asset := range assets {
+			p.Attachments[i] = slackAssetAttachment(asset)
+		}
 		_, _, err := api.PostMessage(m.ChannelId, "", p)
 		return true, err
 	}
@@ -135,11 +134,18 @@ func AssetHostnameHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage)
 				assets = append(assets, a[0])
 			}
 		}
-		log.Printf("Found assets: %+v\n", assets)
-		p := slack.NewPostMessageParameters()
-		p.Attachments = []slack.Attachment{*slackAssetsAttachment(assets)}
-		_, _, err := api.PostMessage(m.ChannelId, "", p)
-		return true, err
+		if len(assets) > 0 {
+			log.Printf("Found assets: %+v\n", assets)
+			p := slack.NewPostMessageParameters()
+			//old style list assets
+			//p.Attachments = []slack.Attachment{*slackAssetsAttachment(assets)}
+			p.Attachments = make([]slack.Attachment, len(assets))
+			for i, asset := range assets {
+				p.Attachments[i] = slackAssetAttachment(asset)
+			}
+			_, _, err := api.PostMessage(m.ChannelId, "", p)
+			return true, err
+		}
 	}
 	return false, nil
 }
