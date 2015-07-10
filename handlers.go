@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	c "github.com/byxorna/collinsbot/collins"
 	"github.com/nlopes/slack"
 	"log"
 	"strings"
@@ -12,6 +13,11 @@ var (
 		"Que?", "Bist du bescheuert oder?", "Donde esta la biblioteca?", "Huh?", "WTF?", "Scientists better check their hypotenuses!",
 	}
 )
+
+type Handler struct {
+	Name     string
+	Function func(*slack.MessageEvent, chan<- slack.OutgoingMessage) (bool, error)
+}
 
 func WTFHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (bool, error) {
 	if isBotMention(m) {
@@ -97,11 +103,10 @@ func AssetTagHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage) (boo
 			items = append(items, assetStringForSlack(asset))
 		}
 		// send a message back to that channel with the links to the assets
-		if len(items) > 0 {
-			_, _, err := api.PostMessage(m.ChannelId, strings.Join(items, "\n"), postParams)
-			//q <- *ws.NewOutgoingMessage(strings.Join(items, "\n"), m.ChannelId)
-			return true, err
-		}
+		p := slack.NewPostMessageParameters()
+		p.Attachments = []slack.Attachment{*slackAssetsAttachment(assets)}
+		_, _, err := api.PostMessage(m.ChannelId, "", p)
+		return true, err
 	}
 	return false, nil
 }
@@ -113,11 +118,28 @@ func AssetHostnameHandler(m *slack.MessageEvent, q chan<- slack.OutgoingMessage)
 	}
 	hosts := extractHostnames(m.Msg.Text)
 	if len(hosts) > 0 {
+		assets := []c.Asset{}
 		for _, host := range hosts {
 			//TODO!
-			log.Printf("Found host %s in %s\n", host, m.Msg.Text)
+			log.Printf("Found host %s in message: %s\n", host, m.Msg.Text)
+			a, err := collins.Find(map[string]string{}, map[string]string{"hostname": host})
+			if err != nil || a == nil {
+				log.Printf("Error trying to find host %s: %s\n", host, err.Error())
+				continue
+			}
+			if len(a) > 1 {
+				log.Printf("Multiple assets found matching hostname %s: %+v\n", a)
+			} else if len(a) == 0 {
+				log.Printf("Nothing found for hostname %s\n", host)
+			} else {
+				assets = append(assets, a[0])
+			}
 		}
-		return true, nil
+		log.Printf("Found assets: %+v\n", assets)
+		p := slack.NewPostMessageParameters()
+		p.Attachments = []slack.Attachment{*slackAssetsAttachment(assets)}
+		_, _, err := api.PostMessage(m.ChannelId, "", p)
+		return true, err
 	}
 	return false, nil
 }

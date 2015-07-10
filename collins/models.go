@@ -5,6 +5,32 @@ import (
 	"fmt"
 )
 
+/*
+find response
+{
+"status": "success:ok",
+"data": {
+    "Pagination": {
+      "PreviousPage": 0,
+      "CurrentPage": 0,
+      "NextPage": 0,
+      "TotalResults": 3
+    },
+    "Data": [...]
+*/
+
+type PaginationData struct {
+	PreviousPage int
+	CurrentPage  int
+	NextPage     int
+	TotalResults int
+}
+
+type PagedAssetResponse struct {
+	Pagination PaginationData
+	Data       []Asset
+}
+
 type GenericResponse struct {
 	Status string          `json:"status"`
 	Data   json.RawMessage `json:"data"`

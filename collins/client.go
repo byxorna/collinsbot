@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -42,8 +45,7 @@ func New(username string, password string, host string) *Client {
 	return &Client{config: c, httpClient: http.Client{}}
 }
 
-func (c *Client) doGet(route string) (*json.RawMessage, error) {
-	url := fmt.Sprintf("%s%s", c.config.Host, route)
+func (c *Client) doGet(url string) (*json.RawMessage, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -80,7 +82,7 @@ func (c *Client) doGet(route string) (*json.RawMessage, error) {
 }
 
 func (c *Client) Get(tag string) (*Asset, error) {
-	rawjson, err := c.doGet(fmt.Sprintf("/api/asset/%s", tag))
+	rawjson, err := c.doGet(fmt.Sprintf("%s/api/asset/%s", c.config.Host, tag))
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +95,69 @@ func (c *Client) Get(tag string) (*Asset, error) {
 	return &a, nil
 }
 
+func (c *Client) Find(params map[string]string, attrs map[string]string) ([]Asset, error) {
+	//TODO add pagination
+	/*
+		var (
+			page = 0
+			size = 25
+			sort = "DESC"
+		)
+	*/
+
+	route := c.LinkFromAttributesApi(params, attrs)
+	log.Printf("fetching %s\n", route)
+	rawjson, err := c.doGet(route)
+	if err != nil {
+		return nil, err
+	}
+	var res PagedAssetResponse
+	// data is a {"Pagination":...,"Data":...}
+	err = json.Unmarshal(*rawjson, &res)
+	if err != nil {
+		return nil, err
+	}
+	//TODO loop pages
+
+	return res.Data, nil
+
+}
+
 func (c *Client) Link(asset Asset) string {
 	return c.LinkFromTag(asset.Asset.Tag)
 }
 func (c *Client) LinkFromTag(tag string) string {
 	return fmt.Sprintf("%s/asset/%s", c.config.Host, tag)
 }
-func (c *Client) LinkFromAttribute(attribute string, value string) string {
-	return fmt.Sprintf("%s/resources?%s=%s", c.config.Host, attribute, value)
+
+// return a link to the web UI for a single attribute key=value pair
+func (c *Client) LinkFromAttributeWeb(attribute string, value string) string {
+	return fmt.Sprintf("%s/resources?%s=%s", c.config.Host, url.QueryEscape(attribute), url.QueryEscape(value))
+}
+
+// return a link to a given query in the API
+func (c *Client) LinkFromAttributesApi(params map[string]string, attrs map[string]string) string {
+	return c.linkFromAttributes("/api/assets", params, attrs)
+}
+
+// return a link to a given query in the web UI
+func (c *Client) LinkFromAttributesWeb(params map[string]string, attrs map[string]string) string {
+	//We shouldnt treat attrs and params differently, as there is no attribute=KEY;VALUE on /resources
+	for k, v := range attrs {
+		params[k] = v
+	}
+	return c.linkFromAttributes("/resources", params, map[string]string{})
+}
+func (c *Client) linkFromAttributes(route string, params map[string]string, attrs map[string]string) string {
+	queryParams := make([]string, len(params)+len(attrs))
+	i := 0
+	for k, v := range params {
+		queryParams[i] = fmt.Sprintf("%s=%s", url.QueryEscape(k), url.QueryEscape(v))
+		i = i + 1
+	}
+	for k, v := range attrs {
+		queryParams[i] = fmt.Sprintf("attribute=%s", url.QueryEscape(fmt.Sprintf("%s;%s", k, v)))
+		i = i + 1
+	}
+	return fmt.Sprintf("%s%s?%s", c.config.Host, route, strings.Join(queryParams, "&"))
 }

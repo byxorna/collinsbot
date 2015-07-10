@@ -27,22 +27,21 @@ func isBotMessage(m *slack.MessageEvent) bool {
 	return m.Msg.SubType == "bot_message"
 }
 
-func lookupAssetsFromTags(tags []string) []*c.Asset {
-	var assets []*c.Asset
+func lookupAssetsFromTags(tags []string) []c.Asset {
+	var assets []c.Asset
 	for _, t := range tags {
 		log.Printf("Attempting to resolve %s to a collins asset\n", t)
 		a, err := collins.Get(t)
 		if err != nil {
 			log.Printf("Error resolving tag %s: %s", t, err.Error())
 		} else {
-			assets = append(assets, a)
+			assets = append(assets, *a)
 		}
 	}
 	return assets
 }
 
-//TODO this should return a slack Attachment instead
-func assetStringForSlack(asset *c.Asset) string {
+func assetStringForSlack(asset c.Asset) string {
 	// this is crazy and hacky. There has to be a better way to format this
 	var (
 		emptystr       = ""
@@ -54,18 +53,46 @@ func assetStringForSlack(asset *c.Asset) string {
 		status         = asset.Asset.Status
 		state          = asset.Asset.State.Name
 	)
-	return fmt.Sprintf("<%s|%s> <http://%s|%s> [<%s|%s>/%s/%s/%s] <fixme|%s:%s>",
-		collins.Link(*asset), asset.Asset.Tag,
+	//TODO fix me! if an attribute is missing we should omit the link
+	return fmt.Sprintf("<%s|%s> <http://%s|%s> [<%s|%s>/<%s|%s>/<%s|%s>/<%s|%s>] <%s|%s:%s>",
+		collins.Link(asset), asset.Asset.Tag,
 		*hostname, *hostname,
-		collins.LinkFromAttribute("NODECLASS", *nodeclass), *nodeclass,
-		collins.LinkFromAttribute("POOL", *pool), *pool,
-		collins.LinkFromAttribute("PRIMARY_ROLE", *primary_role), *primary_role,
-		collins.LinkFromAttribute("SECONDARY_ROLE", *secondary_role), *secondary_role,
-		status, state)
+		collins.LinkFromAttributeWeb("NODECLASS", *nodeclass), *nodeclass,
+		collins.LinkFromAttributeWeb("POOL", *pool), *pool,
+		collins.LinkFromAttributeWeb("PRIMARY_ROLE", *primary_role), *primary_role,
+		collins.LinkFromAttributeWeb("SECONDARY_ROLE", *secondary_role), *secondary_role,
+		collins.LinkFromAttributesWeb(map[string]string{
+			"status": status,
+			"state":  state,
+		}, map[string]string{}), status, state,
+	)
+}
+
+func slackAssetsAttachment(assets []c.Asset) *slack.Attachment {
+	if len(assets) == 0 {
+		return &slack.Attachment{
+			Title:    "No assets found",
+			Text:     "I couldn't find any assets matching that query!",
+			Fallback: "I couldn't find any assets matching that query!",
+			Color:    "danger",
+		}
+	}
+	var fallbackparts = make([]string, len(assets))
+	var textparts = make([]string, len(assets))
+	for i, a := range assets {
+		fallbackparts[i] = collins.Link(a)
+		textparts[i] = assetStringForSlack(a)
+	}
+	return &slack.Attachment{
+		Title:    fmt.Sprintf("%d Assets in Collins", len(assets)),
+		Color:    "good",
+		Fallback: strings.Join(fallbackparts, "\n"),
+		Text:     strings.Join(textparts, "\n"),
+	}
 }
 
 // return a random string from an array of strings
 func random(arr []string) string {
 	rand.Seed(time.Now().Unix())
-	return arr[rand.Intn(len(arr)-1)]
+	return arr[rand.Intn(len(arr))]
 }

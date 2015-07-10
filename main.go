@@ -29,12 +29,12 @@ var (
 
 	// message handlers are functions that process a message event
 	// similar to http route handlers. The first to return true stops processing
-	messagehandlers = map[string]func(*slack.MessageEvent, chan<- slack.OutgoingMessage) (bool, error){
-		"HelpHandler":          HelpHandler,
-		"YouAliveHandler":      YouAliveHandler,
-		"AssetTagHandler":      AssetTagHandler,
-		"AssetHostnameHandler": AssetHostnameHandler,
-		"WTFHandler":           WTFHandler,
+	messagehandlers = []Handler{
+		Handler{"Help", HelpHandler},
+		Handler{"YouAlive", YouAliveHandler},
+		Handler{"AssetTag", AssetTagHandler},
+		Handler{"AssetHostname", AssetHostnameHandler},
+		Handler{"WTF", WTFHandler},
 	}
 
 	helpinfo = map[string]string{
@@ -145,15 +145,20 @@ func main() {
 				} else {
 					log.Printf("Unable to parse timestamp %s: %s\n", msgevent.Timestamp, err.Error())
 				}
+				if msgevent.Msg.Text == "" {
+					continue
+				}
 
-				for name, handler := range messagehandlers {
-					handled, err := handler(msgevent, chOutgoingMessages)
+				log.Printf("Processing: %s\n", msgevent.Msg.Text)
+				for _, handler := range messagehandlers {
+					//log.Printf("Testing handler %s...\n", handler.Name)
+					handled, err := handler.Function(msgevent, chOutgoingMessages)
 					if err != nil {
-						log.Printf("Error handling message with %s: %s\n", name, handler, err.Error())
+						log.Printf("Error handling message with %s: %s\n", handler.Name, err.Error())
 						continue
 					}
 					if handled {
-						log.Printf("%s handled message %s\n", name, msgevent.Msg.Text)
+						log.Printf("%s handled message %s\n", handler.Name, msgevent.Msg.Text)
 						break
 					}
 				}
