@@ -109,9 +109,9 @@ func (c *Context) Handle(m *slack.MessageEvent) {
 		return
 	}
 
-	log.Printf("Processing: %s\n", m.Msg.Text)
+	//log.Printf("Processing: %s\n", m.Msg.Text)
 	for _, handler := range c.Handlers {
-		log.Printf("Testing handler %s...\n", handler.Name)
+		//log.Printf("Testing handler %s...\n", handler.Name)
 		handled, err := handler.Function(c, m)
 		if err != nil {
 			log.Printf("Error handling message with %s: %s\n", handler.Name, err.Error())
