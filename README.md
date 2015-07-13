@@ -23,6 +23,14 @@ Populate your config.json, and pass a `-token` for your API key.
 ./collinsbot -config examples/config.json -token="$(cat slack.token)"
 ```
 
+### Run in docker
+
+An automated build is maintained on the hub at https://registry.hub.docker.com/u/byxorna/collinsbot/. Inject your config into the container and give it a whirl.
+
+```
+docker run -v $(pwd)/my/config.json:/etc/config.json byxorna/collinsbot -config /etc/config.json
+```
+
 ## TODO
 
 I just randomly picked a go slack library (github.com/nlopes/slack). I am not super happy with it, and it seems pretty messy. Perhaps look into using:
