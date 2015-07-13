@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (c *Context) YouAliveHandler(m *slack.MessageEvent) (bool, error) {
+func YouAlive(c *Context, m *slack.MessageEvent) (bool, error) {
 	matched := c.isBotMention(m) && strings.Contains(m.Msg.Text, "yt?")
 	if matched {
 		log.Printf("Got yt? message %+v", m.Msg)

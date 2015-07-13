@@ -26,12 +26,11 @@ var (
 
 	// message handlers are functions that process a message event
 	// similar to http route handlers. The first to return true stops processing
-	messagehandlers = []string{
-		"Help",
-		"YouAlive",
-		"AssetTag",
-		"AssetHostname",
-		//"WTF",
+	messagehandlers = []handlers.Handler{
+		handlers.Handler{"Help", handlers.Help},
+		handlers.Handler{"YouAlive", handlers.YouAlive},
+		handlers.Handler{"AssetTag", handlers.AssetTag},
+		handlers.Handler{"AssetHostname", handlers.AssetHostname},
 	}
 )
 
@@ -93,10 +92,7 @@ func main() {
 	for _, v := range messagehandlers {
 		log.Printf("  %s\n", v)
 	}
-	handlerContext, err = handlers.New(collins, authresp, api, messagehandlers)
-	if err != nil {
-		log.Fatal(err)
-	}
+	handlerContext = handlers.New(collins, authresp, api, messagehandlers)
 	log.Printf("Starting up message handler")
 	handlerContext.Run()
 

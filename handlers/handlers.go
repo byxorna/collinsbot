@@ -6,16 +6,14 @@ import (
 	"github.com/nlopes/slack"
 	"log"
 	"math/rand"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type HandlerFn func(*slack.MessageEvent) (bool, error)
 type Handler struct {
 	Name     string
-	Function reflect.Value
+	Function func(*Context, *slack.MessageEvent) (bool, error)
 }
 
 type Context struct {
@@ -28,7 +26,7 @@ type Context struct {
 	ws                 *slack.SlackWS
 }
 
-func New(client *collins.Client, self *slack.AuthTestResponse, api *slack.Slack, handlers []string) (*Context, error) {
+func New(client *collins.Client, self *slack.AuthTestResponse, api *slack.Slack, handlers []Handler) *Context {
 	c := Context{
 		Collins:            client,
 		Self:               self,
@@ -39,28 +37,19 @@ func New(client *collins.Client, self *slack.AuthTestResponse, api *slack.Slack,
 	}
 
 	for _, h := range handlers {
-		err := c.Register(h)
-		if err != nil {
-			return nil, err
-		}
+		c.Register(h.Name, h.Function)
 	}
 
-	return &c, nil
+	return &c
 }
 
-func (c *Context) Register(handler string) error {
-	// make sure we can invoke this handler method and it matches our signature
-	m, ok := reflect.TypeOf(c).MethodByName(handler)
-	if !ok {
-		return fmt.Errorf("Method %s doesnt exist on this context", handler)
-	}
-	log.Printf("%+v\n", m)
-	//_, ok := m.Interface().(func(*slack.MessageEvent) (bool, error))
+//TODO i couldnt figure out how to make the handler functions of signature (*Context)func(*slack.MessageEvent)(bool,error) and actually
+// invoke the method on some  specific object. So, i moved the context into the arglist. fuck it
+func (c *Context) Register(handler string, f func(*Context, *slack.MessageEvent) (bool, error)) {
 	c.Handlers = append(c.Handlers, Handler{
 		Name:     handler,
-		Function: m,
+		Function: f,
 	})
-	return nil
 }
 
 func (c *Context) Run() {
@@ -122,22 +111,8 @@ func (c *Context) Handle(m *slack.MessageEvent) {
 
 	log.Printf("Processing: %s\n", m.Msg.Text)
 	for _, handler := range c.Handlers {
-		log.Printf("Testing handler %s %v...\n", handler.Name, handler.Function)
-		vals := handler.Function.Call([]reflect.Value{reflect.ValueOf(m)})
-		log.Printf("Vals: %+v\n", vals)
-		// try and pull out (bool, error) from the []reflect.Value
-		handled := vals[0].Interface().(bool)
-		//TODO why cant we just typeassert vals[1] as .(error)
-		var err error = nil
-		switch vals[1].Interface().(type) {
-		case nil:
-			err = nil
-			break
-		case error:
-			err = vals[1].Interface().(error)
-			break
-		}
-		log.Printf("Handled: %v err: %v\n", handled, err)
+		log.Printf("Testing handler %s...\n", handler.Name)
+		handled, err := handler.Function(c, m)
 		if err != nil {
 			log.Printf("Error handling message with %s: %s\n", handler.Name, err.Error())
 			continue

@@ -4,7 +4,7 @@ import (
 	"github.com/nlopes/slack"
 )
 
-func (c *Context) AssetTagHandler(m *slack.MessageEvent) (bool, error) {
+func AssetTag(c *Context, m *slack.MessageEvent) (bool, error) {
 	// dont process if this came from a bot (like ourselves). avoids looping
 	if isBotMessage(m) {
 		return false, nil

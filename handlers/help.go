@@ -13,7 +13,7 @@ var helpinfo = map[string]string{
 	"mention any asset tag or hostname": "get a link to the asset",
 }
 
-func (c *Context) Help(m *slack.MessageEvent) (bool, error) {
+func Help(c *Context, m *slack.MessageEvent) (bool, error) {
 	if c.isBotMention(m) && strings.Contains(m.Msg.Text, "help") {
 		log.Printf("Got help message\n")
 		p := slack.NewPostMessageParameters()

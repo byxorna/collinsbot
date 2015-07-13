@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func (c *Context) AssetHostnameHandler(m *slack.MessageEvent) (bool, error) {
+func AssetHostname(c *Context, m *slack.MessageEvent) (bool, error) {
 	// handle messages with any hostnames present - if assets, link them
 	if isBotMessage(m) {
 		return false, nil
