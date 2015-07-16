@@ -1,7 +1,7 @@
 # collinsbot
 Slack collins bot
 
-For great justice
+[![Docker Container Status](http://dockeri.co/image/byxorna/collinsbot)](https://registry.hub.docker.com/u/byxorna/collinsbot/)
 
 ## Features
 
